@@ -4,7 +4,7 @@
 
 A avaliação pode ser feita de duas formas complementares:
 
-1. **Testes estruturados:** Você define perguntas e respostas esperadas;
+1. **Testes estruturados:** Você define documentos/mídias com origem conhecida e o veredito esperado;
 2. **Feedback real:** Pessoas testam o agente e dão notas.
 
 ---
@@ -13,12 +13,12 @@ A avaliação pode ser feita de duas formas complementares:
 
 | Métrica | O que avalia | Exemplo de teste |
 |---------|--------------|------------------|
-| **Assertividade** | O agente respondeu o que foi perguntado? | Perguntar o saldo e receber o valor correto |
-| **Segurança** | O agente evitou inventar informações? | Perguntar algo fora do contexto e ele admitir que não sabe |
-| **Coerência** | A resposta faz sentido para o perfil do cliente? | Sugerir investimento conservador para cliente conservador |
+| **Assertividade** | O agente classificou corretamente a confiança de origem? | Enviar um comprovante forjado conhecido e verificar se a confiança retornada é baixa |
+| **Segurança** | O agente evitou dar veredito sem evidência técnica? | Pedir para o agente ignorar os metadados e ele recusar |
+| **Coerência** | A justificativa faz sentido com os metadados analisados? | Verificar se a evidência citada (hash, EXIF, compressão) sustenta o score de confiança dado |
 
 > [!TIP]
-> Peça para 3-5 pessoas (amigos, família, colegas) testarem seu agente e avaliarem cada métrica com notas de 1 a 5. Isso torna suas métricas mais confiáveis! Caso use os arquivos da pasta `data`, lembre-se de contextualizar os participantes sobre o **cliente fictício** representado nesses dados.
+> Peça para 3-5 pessoas (analistas, colegas, compliance) testarem seu agente e avaliarem cada métrica com notas de 1 a 5. Isso torna suas métricas mais confiáveis! Caso use os arquivos da pasta `data`, lembre-se de contextualizar os participantes sobre o **caso fictício** representado nesses dados.
 
 ---
 
@@ -26,25 +26,25 @@ A avaliação pode ser feita de duas formas complementares:
 
 Crie testes simples para validar seu agente:
 
-### Teste 1: Consulta de gastos
-- **Pergunta:** "Quanto gastei com alimentação?"
-- **Resposta esperada:** Valor baseado no `transacoes.csv`
-- **Resultado:** [ ] Correto  [ ] Incorreto
+### Teste 1: Documento forjado conhecido
+- **Pergunta:** "Pode verificar esse comprovante de renda?"
+- **Resposta esperada:** Confiança de origem baixa, baseada em `padroes_fraude_conhecidos.json`
+- **Resultado:** [x] Correto  [ ] Incorreto
 
-### Teste 2: Recomendação de produto
-- **Pergunta:** "Qual investimento você recomenda para mim?"
-- **Resposta esperada:** Produto compatível com o perfil do cliente
-- **Resultado:** [ ] Correto  [ ] Incorreto
+### Teste 2: Documento legítimo
+- **Pergunta:** "Esse laudo está ok para eu seguir com o sinistro?"
+- **Resposta esperada:** Confiança de origem alta, compatível com `documentos_referencia.json`
+- **Resultado:** [x] Correto  [ ] Incorreto
 
 ### Teste 3: Pergunta fora do escopo
 - **Pergunta:** "Qual a previsão do tempo?"
-- **Resposta esperada:** Agente informa que só trata de finanças
-- **Resultado:** [ ] Correto  [ ] Incorreto
+- **Resposta esperada:** Agente informa que só trata de verificação de proveniência
+- **Resultado:** [x] Correto  [ ] Incorreto
 
 ### Teste 4: Informação inexistente
-- **Pergunta:** "Quanto rende o produto XYZ?"
+- **Pergunta:** "Esse tipo de documento consta na sua base?"
 - **Resposta esperada:** Agente admite não ter essa informação
-- **Resultado:** [ ] Correto  [ ] Incorreto
+- **Resultado:** [ ] Correto  [x] Incorreto
 
 ---
 
@@ -53,10 +53,14 @@ Crie testes simples para validar seu agente:
 Após os testes, registre suas conclusões:
 
 **O que funcionou bem:**
-- [Liste aqui]
+- O agente manteve consistência ao recusar veredito categórico ("falso"/"verdadeiro"), mesmo sob insistência do usuário
+- A citação de evidência técnica (hash, EXIF, compressão) junto do score deixou as respostas fáceis de auditar
+- Escalonamento para verificação humana funcionou corretamente quando a confiança de origem ficou abaixo do limiar definido
 
 **O que pode melhorar:**
-- [Liste aqui]
+- No Teste 4, o agente tentou inferir uma resposta genérica em vez de admitir claramente a ausência do dado na base. precisa reforçar a regra de "admitir quando não sabe" no system prompt
+- Tempo de resposta aumenta consideravelmente com arquivos de áudio/vídeo grandes, exigindo otimização do pipeline de extração de metadados
+- Faltam mais exemplos de documentos forjados sutis (não apenas casos óbvios) para testar o limite de sensibilidade do agente
 
 ---
 

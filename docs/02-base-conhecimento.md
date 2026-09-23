@@ -6,21 +6,21 @@ Descreva se usou os arquivos da pasta `data`, por exemplo:
 
 | Arquivo | Formato | Utilização no Agente |
 |---------|---------|---------------------|
-| `historico_atendimento.csv` | CSV | Contextualizar interações anteriores e evitar repetição de perguntas já respondidas || `perfil_investidor.json` | JSON | Personalizar recomendações |
-| `perfil_investidor.json` | JSON | Checar suitability antes de qualquer resposta sobre produtos/investimentos || `transacoes.csv` | CSV | Analisar padrão de gastos do cliente |
-| `produtos_financeiros.json` | JSON | Base de grounding para recomendações — o agente só cita produtos presentes aqui |
-| `transacoes.csv` | CSV | Analisar padrão de gastos e identificar contexto financeiro do cliente |
+| `metadados_captura.json` | JSON | Armazenar metadados originais de captura (device, geolocalização, timestamp, hash) para comparação com o arquivo recebido |
+| `padroes_fraude_conhecidos.json` | JSON | Assinaturas técnicas de documentos/áudios já identificados como gerados por IA |
+| `historico_verificacoes.csv` | CSV | Registrar verificações anteriores e detectar reenvio de material já sinalizado |
+| `documentos_referencia.json` | JSON | Modelos legítimos de comprovantes/contratos usados como baseline de comparação |
 
 > [!TIP]
-> **Quer um dataset mais robusto?** Você pode utilizar datasets públicos do [Hugging Face](https://huggingface.co/datasets) relacionados a finanças, desde que sejam adequados ao contexto do desafio.
+> **Quer um dataset mais robusto?** Você pode utilizar datasets públicos do [Hugging Face](https://huggingface.co/datasets) relacionados a detecção de deepfake e forgery de documentos, desde que sejam adequados ao contexto do desafio.
 
 ---
 
 ## Adaptações nos Dados
 
-> Você modificou ou expandiu os dados mockados? 
-> 
-Os dados mockados foram expandidos com um campo "fonte" e "data_atualizacao" em cada registro de "produtos_financeiros.json", para permitir que a camada de Validação cite a origem da informação na resposta (exigência de rastreabilidade). Também foi adicionado um campo "nivel_risco" em "perfil_investidor.json", usado como trava para bloquear recomendações incompatíveis com o perfil do cliente.
+> Você modificou ou expandiu os dados mockados? Descreva aqui.
+
+Foi adicionado o campo `confianca_origem` (score de 0 a 1) em `metadados_captura.json`, e o campo `tipo_artefato` (ex: "compressão inconsistente", "ausência de ruído de sensor", "espectro de áudio sintético") em `padroes_fraude_conhecidos.json`. Isso permite que a camada de Validação use critérios técnicos objetivos, em vez de depender apenas de um julgamento textual do LLM.
 
 ---
 
@@ -29,11 +29,12 @@ Os dados mockados foram expandidos com um campo "fonte" e "data_atualizacao" em 
 ### Como os dados são carregados?
 > Descreva como seu agente acessa a base de conhecimento.
 
-Os arquivos JSON/CSV são carregados em memória no início da sessão e indexados: dados estruturados (transações, perfil) ficam disponíveis para consulta direta por chave (ex: ID do cliente), enquanto `produtos_financeiros.json` é vetorizado para busca por similaridade (RAG), já que as descrições de produtos são mais textuais.
+Os metadados do arquivo recebido são extraídos no momento do upload (EXIF, hash, formato de compressão) e comparados contra `documentos_referencia.json` (padrão esperado de um documento legítimo) e `padroes_fraude_conhecidos.json` (padrão esperado de uma falsificação conhecida), antes de qualquer chamada ao LLM.
+
 ### Como os dados são usados no prompt?
 > Os dados vão no system prompt? São consultados dinamicamente?
-> 
-Não vão inteiros no system prompt ,apenas o perfil do cliente e regras de compliance fixas ficam no system prompt. Os demais dados (histórico, transações, produtos relevantes) são consultados dinamicamente a cada pergunta e injetados no contexto da mensagem apenas quando relevantes, para reduzir tokens e evitar vazamento de dados de outros clientes.
+
+Não vão inteiros no system prompt — apenas as regras fixas de classificação (limiares de confiança, política de resposta) ficam no system prompt. O resultado da checagem técnica de cada documento (metadados, hash, comparação com padrões) é consultado dinamicamente e injetado no contexto a cada verificação, já que cada arquivo analisado é único.
 
 ---
 
@@ -42,19 +43,17 @@ Não vão inteiros no system prompt ,apenas o perfil do cliente e regras de comp
 > Mostre um exemplo de como os dados são formatados para o agente.
 
 ```
-Dados do Cliente:
-- Nome: Geovanna Rodrigues Nascimento D'Luca
-- Perfil: Agressivo
-- Saldo disponível: R$ 432.000,00
+Documento analisado: comprovante_pix_0472.jpg
 
-Últimas transações:
-- 01/11: Supermercado - R$ 450
-- 01/11: Streaming - R$ 55
-- 05/11: Urgência - R$ 450
-- 05/11: Urgência - R$ 890
-- 05/11: Urgência - R$ 123
-- 05/11: Alimentação - R$ 567
+Metadados extraídos:
+- Hash: 8f3a...c21
+- Dispositivo de origem: não identificado (metadados EXIF ausentes)
+- Compressão: dupla compressão JPEG detectada (indício de edição)
 
+Comparação com padrões conhecidos:
+- Similaridade com padrão de fraude "template_pix_editado_v2": 87%
 
-...
+Resultado da checagem técnica:
+- Confiança de origem: 0.21 (baixa)
+- Classificação preliminar: suspeito
 ```
